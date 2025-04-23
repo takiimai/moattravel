@@ -29,7 +29,7 @@ public class House {
 	private String imageName;
 	
 	@Column(name = "description")
-	private String descripthion;
+	private String description;
 	
 	@Column(name = "price")
 	private Integer price;
