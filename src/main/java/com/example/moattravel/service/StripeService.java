@@ -1,5 +1,8 @@
 package com.example.moattravel.service;
 
+import java.util.Map;
+import java.util.Optional;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -8,17 +11,26 @@ import org.springframework.stereotype.Service;
 import com.example.moattravel.form.ReservationRegisterForm;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Event;
+import com.stripe.model.StripeObject;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
+import com.stripe.param.checkout.SessionRetrieveParams;
 
 @Service
 public class StripeService {
 	@Value("${stripe.api-key}")
-	private String stripeApikey;
+	private String stripeApiKey;
+	private final ReservationService reservationService;
+
+	public StripeService(ReservationService reservationService) {
+		this.reservationService = reservationService;
+	}
+
 	// セッションを作成し、Stripeに必要な情報を返す
 	public String createStripeSession(String houseName, ReservationRegisterForm reservationRegisterForm,
 			HttpServletRequest httpServletRequest) {
-		Stripe.apiKey = "sk_test_51RO9DFR8fGYOKVL8P1J6gi9h846CQC2qyCYyYFqZa5rRzNIYjWiHwpbiBNGvUhZa7Ef1vI6JetibKeazg9Qi3QDA004dNvBIXa";
+		Stripe.apiKey = stripeApiKey;
 		String requestUrl = new String(httpServletRequest.getRequestURL());
 		SessionCreateParams params = SessionCreateParams.builder()
 				.addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
@@ -56,5 +68,21 @@ public class StripeService {
 			e.printStackTrace();
 			return "";
 		}
+	}
+
+	// セッションから予約情報を取得し、ReservationServiceクラスを介してデータベースに登録する  
+	public void processSessionCompleted(Event event) {
+		Optional<StripeObject> optionalStripeObject = event.getDataObjectDeserializer().getObject();
+		optionalStripeObject.ifPresent(stripeObject -> {
+			Session session = (Session) stripeObject;
+			SessionRetrieveParams params = SessionRetrieveParams.builder().addExpand("payment_intent").build();
+			try {
+				session = Session.retrieve(session.getId(), params, null);
+				Map<String, String> paymentIntentObject = session.getPaymentIntentObject().getMetadata();
+				reservationService.create(paymentIntentObject);
+			} catch (StripeException e) {
+				e.printStackTrace();
+			}
+		});
 	}
 }
