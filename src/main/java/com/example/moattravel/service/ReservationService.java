@@ -64,4 +64,8 @@ public class ReservationService {
 		int amount = price * (int) numberOfNights;
 		return amount;
 	}
+//	// 宿泊人数が定員以下かどうかをチェックする
+//		public boolean isWithinCapacity(Integer numberOfPeople, Integer capacity) {
+//			return numberOfPeople <= capacity;
+//		}
 }
